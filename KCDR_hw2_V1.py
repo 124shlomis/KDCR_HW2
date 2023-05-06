@@ -1,13 +1,24 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import style
+from scipy.optimize import fsolve
 from math import pi,atan2,atan,sqrt,cos,sin
 import itertools
 import sympy as sp
 from sympy.physics.mechanics import dynamicsymbols
 from sympy import diff, symbols
 
-def inverse_kin(x,elbows):
+def find_roots(sym_exp, symbol, interval_array):
+    roots = []
+    for i in range(len(interval_array)):
+        try:
+            root = float(sp.nsolve(sym_exp,(interval_array[i], interval_array[i+1]+1.e-5), solver = 'bisect'))
+            roots.append(root)
+        except:
+            continue
+    return roots
+
+def inverse_kin_per_time_step(x,elbows):
     # x = x[0], y = x[1], phi(deg) = x[2]
     # q[0] = theta1, q[1] = theta 2 q[2] = theta3
     q = [0,0,0]
@@ -35,10 +46,10 @@ def inverse_kin(x,elbows):
     
     return q
 
-def forward_kin(q):
+def forward_kin_per_time_step(q):
     #q[0] - theta 1 , q[1] - theta2 , q[2] - d3
-    q_0_rad = q[0]*pi/180.
-    q_1_rad = q[1]*pi/180
+    q_0_rad = q[0]
+    q_1_rad = q[1]
     
     theta1_sym, theta2_sym, d3_sym, phi_sym ,x_sym ,y_sym, L_sym, R_sym, r_sym ,t_sym = symbols ('theta1_sym, theta2_sym, d3_sym, phi_sym ,x_sym ,y_sym L_sym, R_sym, r_sym, t_sym')
 
@@ -46,31 +57,34 @@ def forward_kin(q):
     theta2_eq = (x_sym-R_sym*sp.cos(theta2_sym))**2 + (y_sym-R_sym*sp.sin(theta2_sym))**2 - L_sym**2
     d3_eq = (x_sym+r_sym*sp.cos(phi_sym))**2+(y_sym+r_sym*sp.sin(phi_sym)+R_sym)**2-d3_sym**2
     
-    a = (theta1_eq-d3_eq)
-    b = (theta2_eq-d3_eq)
+    a = (theta1_eq-theta2_eq).expand()
+    b = (d3_eq-theta2_eq).expand()
 
     ans = sp.solve([a,b],x_sym,y_sym, dict=True)
     x_phi = ans[0][x_sym]
     y_phi = ans[0][y_sym]
 
-    d3_eq_phi = d3_eq.subs({x_sym:x_phi, y_sym:y_phi})
-    d3_eq_half_tangent = d3_eq_phi.subs({sp.sin(phi_sym):2*t_sym/(1+t_sym**2),sp.cos(phi_sym):((1-t_sym**2)/(1+t_sym**2))})
-    t_num_eq = d3_eq_half_tangent.subs({theta1_sym:q_0_rad,theta2_sym:q_1_rad,d3_sym:q[2],L_sym:3.5,R_sym:4,r_sym:2})
-    t_num_eq = t_num_eq.simplify()
-    sol_t = sp.nonlinsolve(t_num_eq,t_sym)
-    
-    
-    print(sol_t)
-    return 0
+    theta2_eq_phi =theta2_eq.subs({x_sym:x_phi, y_sym:y_phi})
+    theta2_eq_half_tangent = theta2_eq_phi.subs({sp.sin(phi_sym):2*t_sym/(1+t_sym**2),sp.cos(phi_sym):((1-t_sym**2)/(1+t_sym**2)),sp.tan(phi_sym/2):t_sym})
+    phi_num_eq = theta2_eq_phi.subs({theta1_sym:q_0_rad,theta2_sym:q_1_rad,d3_sym:q[2],L_sym:3.5,R_sym:4,r_sym:2})
+   
+    init_guesses = np.linspace(-pi,pi,24)
+    phi = find_roots(phi_num_eq, phi_sym, init_guesses)
+
+
+    x = [float(x_phi.subs(({theta1_sym:q_0_rad,theta2_sym:q_1_rad,d3_sym:q[2],L_sym:3.5,R_sym:4,r_sym:2, phi_sym: angle}))) for angle in phi]
+    y = [float(y_phi.subs(({theta1_sym:q_0_rad,theta2_sym:q_1_rad,d3_sym:q[2],L_sym:3.5,R_sym:4,r_sym:2, phi_sym: angle}))) for angle in phi]
+    d_calc = [x , y, phi]    
+    return d_calc
 
 
 
-def draw_inv(x):
+def draw_inv_per_time_step(x):
     # draws all possibilites of invers kin for given x
     elbows_permutaions = [[1,1],[-1,-1],[1,-1],[-1,1]] 
     q_poss = []
     for count,elbow_poss in enumerate(elbows_permutaions):
-        q_poss.append(inverse_kin(x,elbow_poss))
+        q_poss.append(inverse_kin_per_time_step(x,elbow_poss))
            
     # tool coordinates
     phi = x[2]*pi/180 # translate to rad
@@ -172,15 +186,13 @@ x= [-3,-1, 45]
 
 plt.close('all')        
 
-draw_inv(x)
+# draw_inv(x)
 
 # draw forward kinematics
 
-q = inverse_kin(x, [1,1])
-q_deg = [angle*180/pi for angle in q if angle in q[:-1]]
-q = q_deg + q[2]
-# x_calc = forward_kin(q)
-
+q = inverse_kin_per_time_step(x, [1,1])
+x_calc = forward_kin_per_time_step(q)
+# q_calc = inverse_kin([x_calc[0][0],x_calc[1][0],x_calc[2][0]*180/pi],[-1,-1])
 
 
 
