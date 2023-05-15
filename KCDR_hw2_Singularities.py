@@ -4,10 +4,10 @@ from math import pi,atan2,atan,sqrt,cos,sin
 from sympy.solvers import nsolve
 from sympy.solvers.solveset import solveset_real
 from scipy.optimize import fsolve,root_scalar
+from scipy import interpolate
 import numpy as np
 import matplotlib.pyplot as plt
 
-# theta1, theta2, d3, phi ,x ,y = dynamicsymbols('theta1 theta2 d3 phi x y')
 R = 4.
 r = 2.
 L = 3.5
@@ -51,11 +51,6 @@ def find_roots(sym_exp, symbol, interval_array):
         except:
             continue
     return roots
-
-# q = [1.9350964181814378,-1.8236665044578992,4.690415759823429]
-# q_0_rad = q[0]
-# q_1_rad = q[1]
-
 
 theta1_sym, theta2_sym, d3_sym, phi_sym ,x_sym ,y_sym, L_sym, R_sym, r_sym ,t_sym = symbols ('theta1_sym, theta2_sym, d3_sym, phi_sym ,x_sym ,y_sym L_sym, R_sym, r_sym, t_sym',real=True)
 
@@ -131,10 +126,10 @@ fig, axs = plt.subplots()
 axs.set_title(f'Det Jx for various solutions')
 axs.set_xlabel('x [m]')
 axs.set_ylabel('Det Jx')
-axs.plot(x_valid[0], det_Jx_num[0] , label = 'q1 - elbow [1, 1]')
-axs.plot(x_valid[1], det_Jx_num[1] , label = 'q2 - elbow [-1,-1]')       
-axs.plot(x_valid[2], det_Jx_num[2] , label = 'q3 - elbow [1,-1]')       
-axs.plot(x_valid[3], det_Jx_num[3] , label = 'q4 - elbow [-1,1]')   
+axs.plot(x_valid[0], det_Jx_num[0] , label = 'q1 - elbow [1, 1]',linestyle = '--')
+axs.plot(x_valid[1], det_Jx_num[1] , label = 'q2 - elbow [-1,-1]',linestyle = '--')    
+axs.plot(x_valid[2], det_Jx_num[2] , label = 'q3 - elbow [1,-1]',linestyle = '--')      
+axs.plot(x_valid[3], det_Jx_num[3] , label = 'q4 - elbow [-1,1]',linestyle = '--')  
 axs.grid('True')
 axs.set_xlim([0,2])
 axs.legend(fontsize = '10', loc = 'best')
@@ -174,6 +169,8 @@ fig2.tight_layout()
 x_sing_values = {}
 for counter,elbow in enumerate(elbows_permutations):
     try:
-        x_sing_values[str(elbow)]=np.interp(0.0,np.array(det_Jx_num[counter]), np.array(x_valid[counter]), left = 0.5 , right = 0.75)
+        f = interpolate.interp1d(np.array(det_Jx_num[counter]), np.array(x_valid[counter]), assume_sorted = False)
+        root_detJx = 0 
+        x_sing_values[str(elbow)]=f(root_detJx)
     except:
         continue
