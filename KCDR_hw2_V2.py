@@ -2,11 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import style
 from scipy.optimize import bisect
-from math import pi,atan2,atan,sqrt,cos,sin
-import itertools
+from math import pi,sqrt,cos,sin
 import sympy as sp
-from sympy.physics.mechanics import dynamicsymbols
-from sympy import diff, symbols
+from sympy import  symbols
 
 # global constants
 
@@ -95,12 +93,24 @@ def inverse_kinematics(x):
         axs.plot([x3,0],[y3,-R], color = 'red', marker = 'o',label = 'd3')
         axs.set(xlabel='x [m]', ylabel='y [m]')
         axs.legend(['theta1','theta2','d3'], loc= 'upper right')
-        axs.set_title(f'Config for elbows {str(elbows_permutations[count])}')
+        axs.set_title(f'Inverse kinematics config for elbows {str(elbows_permutations[count])}')
         axs.set_aspect('equal', 'box')
         axs.grid()
         
         fig.tight_layout()
+        plt.show()
+
     return np.array(q_poss)
+
+def filter_solutions(d):
+    # input : numpy matrix of all mathematical solutions for tool position
+    # output : numpy matrix of all physicly allowed solutions  d
+    d_valid = []
+    for sol in list(d):
+        if sqrt((sol[0]+r*cos(sol[2]))**2 + (sol[1]+r*sin(sol[2]))**2)>R:
+            continue
+        d_valid.append(sol)
+    return np.array(d_valid)
         
 def forward_kinematics(q):
     # input :: type == list(3) : theta1 [rad] = q[0], theta2 [rad] = q[1], d3[m] = q[2]
@@ -130,7 +140,9 @@ def forward_kinematics(q):
 
     x = [float(x_phi.subs(({theta1_sym:q_0_rad,theta2_sym:q_1_rad,d3_sym:q[2],L_sym:3.5,R_sym:4,r_sym:2, phi_sym: angle}))) for angle in phi]
     y = [float(y_phi.subs(({theta1_sym:q_0_rad,theta2_sym:q_1_rad,d3_sym:q[2],L_sym:3.5,R_sym:4,r_sym:2, phi_sym: angle}))) for angle in phi]
-    d= np.array([x , y, phi]).T   
+    d= np.array([x , y, phi]).T
+    # check for non-feasible solutions ( e.g d<0)
+    d = filter_solutions(d)
         
     plt.rcParams['axes.grid'] = True
     graph_style = 'seaborn-white'
@@ -154,7 +166,7 @@ def forward_kinematics(q):
                             [x2, y2],
                             [x3, y3]],facecolor='gray',edgecolor='black',label='_nolegend_'))
         fig, axs = plt.subplots()
-        axs.set_title(f'Config {count+1}')
+        axs.set_title(f'Forward kinematics config {count+1}')
         axs.set_xlabel('x [m]')
         axs.set_ylabel('y [m]')       
         axs.plot(x_circ,y_circ, color = 'black',label='_nolegend_', linewidth = 3)
@@ -167,18 +179,17 @@ def forward_kinematics(q):
         axs.grid()
         
         fig.tight_layout()
+        plt.show()
         
     return d
 
 def main():
+    plt.close('all')
     x = [-3, -1 , 45.]
     q = inverse_kinematics(x)
-    d = forward_kinematics(list(q)[3])
+    d = forward_kinematics(list(q)[1])
     # print(q)
     # print(d)
 
 if __name__ == '__main__':
     main()
-
-
-
