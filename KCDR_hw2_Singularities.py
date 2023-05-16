@@ -7,6 +7,7 @@ from scipy.optimize import fsolve,root_scalar
 from scipy import interpolate
 import numpy as np
 import matplotlib.pyplot as plt
+from decimal import Decimal
 
 R = 4.
 r = 2.
@@ -87,39 +88,41 @@ det_Jq = sp.det(Jq)
 # get q from x vector
 elbows_permutations = [[1,1],[-1,-1],[1,-1],[-1,1]] 
 
-x_sing = np.linspace (0,2,20001)
+x_sing = np.linspace (0.5,2,2001, dtype='float64')
 y_sing = np.zeros(x_sing.shape)
-phi_sing = 10.*pi/180.*np.ones(x_sing.shape)
+phi_sing = 10.*np.ones(x_sing.shape, dtype='float64')
 x_list = list(zip(x_sing, y_sing,phi_sing))
 x_list = [list(x_time_step) for x_time_step in x_list]
 
+det_Jx = det_Jx.subs({L_sym : L, r_sym: r, R_sym : R , y_sym: 0., phi_sym : 10.*pi/180}).expand()
+det_Jx_lambda = sp.lambdify([x_sym, theta1_sym,theta2_sym], det_Jx)
+
+det_Jq = det_Jq.subs({L_sym : L, r_sym: r, R_sym : R , y_sym: 0., phi_sym : 10.*pi/180}).expand()
+det_Jq_lambda = sp.lambdify([x_sym, theta1_sym,theta2_sym, d3_sym], det_Jq)
+
+
 q_dict = []
 x_valid = []
+det_Jx_num = []
+det_Jq_num = []
+q_num = []
+
 for counter,elbow in enumerate(elbows_permutations):
     x_valid_elbow = []
-    q_dict_elbow = {}
+    det_Jx_num_elbow = []
+    det_Jq_num_elbow = []
+    q_elbow = []
     for time_step in x_list:
-        try:
-            q_time_step= inverse_kin_per_time_step(time_step, elbow)
-            q_dict_elbow[time_step[0]]=q_time_step
-            x_valid_elbow.append(time_step[0])
-        except:
-            continue
-    q_dict.append(q_dict_elbow)
+        q_time_step= inverse_kin_per_time_step(time_step, elbow)
+        q_elbow.append(q_time_step)
+        x_valid_elbow.append(time_step[0])
+        det_Jx_num_elbow.append(det_Jx_lambda(time_step[0],q_time_step[0],q_time_step[1]))
+        det_Jq_num_elbow.append(det_Jq_lambda(time_step[0],q_time_step[0],q_time_step[1],q_time_step[2]))
     x_valid.append(x_valid_elbow)
-    
-# find and plot numerical det(Jx) as function of x
+    det_Jx_num.append(det_Jx_num_elbow)
+    det_Jq_num.append(det_Jq_num_elbow)
+    q_num.append(q_elbow)
 
-det_Jx = det_Jx.subs({L_sym : L, r_sym: r, R_sym : R , y_sym: 0., phi_sym : 10.*pi/180}).expand()
-det_Jx_lambda = sp.lambdify([x_sym, theta1_sym,theta2_sym,d3_sym], det_Jx)
-
-det_Jx_num = []
-for elbow in q_dict:
-    det_J_num_elbow = []
-    for (key,value) in elbow.items():
-        det_J_num_elbow.append(det_Jx_lambda(key,value[0],value[1],value[2]))
-    det_Jx_num.append(det_J_num_elbow)
-    
 # plot graph with all det Jx for x in range
 
 fig, axs = plt.subplots()
@@ -136,18 +139,7 @@ axs.legend(fontsize = '10', loc = 'best')
 
 fig.tight_layout() 
 
-# find and plot numerical det(Jq) as function of x
 
-det_Jq = det_Jq.subs({L_sym : L, r_sym: r, R_sym : R , y_sym: 0., phi_sym : 10.*pi/180}).expand()
-det_Jq_lambda = sp.lambdify([x_sym, theta1_sym,theta2_sym,d3_sym], det_Jq)
-
-det_Jq_num = []
-for elbow in q_dict:
-    det_J_num_elbow = []
-    for (key,value) in elbow.items():
-        det_J_num_elbow.append(det_Jq_lambda(key,value[0],value[1],value[2]))
-    det_Jq_num.append(det_J_num_elbow)
-    
 # plot graph with all det Jq for x in range
 
 fig2, axs2 = plt.subplots()
@@ -170,7 +162,15 @@ x_sing_values = {}
 for counter,elbow in enumerate(elbows_permutations):
     try:
         f = interpolate.interp1d(np.array(det_Jx_num[counter]), np.array(x_valid[counter]), assume_sorted = False)
-        root_detJx = 0 
-        x_sing_values[str(elbow)]=f(root_detJx)
+        root_detJx = 0
+        x_sing_values[str(elbow)]=float(f(root_detJx))
     except:
         continue
+# for (key,value) in x_sing_values.items():
+#     q_sing = inverse_kin_per_time_step([float(x_sing_values[key]), 0. ,10.], key)    
+#     detJx_value = det_Jx_lambda(float(x_sing_values[key]), q_sing[0], q_sing[1])
+#     print(f'x singular for elbow {key} is {value}')
+
+
+
+
